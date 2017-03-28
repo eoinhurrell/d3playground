@@ -38,7 +38,7 @@
     [db _]
     (reaction (:circles @db))))
 
-(defn d3-inner [data]
+(defn d3-inner3 [data]
  (reagent/create-class
     {:reagent-render (fn [] [:div [:svg {:width 400 :height 800}]])
 
@@ -64,6 +64,86 @@
                                    (attr "cx" (fn [d] (.-x d)))
                                    (attr "cy" (fn [d] (.-y d)))
                                    (attr "r" (fn [d] (.-r d)))))
+    )}))
+
+(defn d3-inner [data]
+ (reagent/create-class
+    {:reagent-render (fn [] [:div [:svg {:width 400 :height 800}]])
+
+     :component-did-mount (fn []
+                            (let [d3data (clj->js data)
+                                  arcs ((-> js/d3
+                                           (.pie)
+                                           (.sort nil)
+                                           (.value (fn [d] (.-r d)))) d3data)
+                                  arc (-> js/d3
+                                          (.arc)
+                                          (.outerRadius 200)
+                                          (.innerRadius 100)
+                                          (.padAngle 0.03)
+                                          (.cornerRadius 8)
+                                          )
+                                  ]
+                              (.. js/d3
+                                  (select "svg")
+                                  (selectAll "g")
+                                  (data d3data)
+                                  (enter)
+                                  (append "g")
+                                  (attr "transform" "translate(200, 200)")
+                                  (selectAll ".arc")
+                                  (data arcs)
+                                  (enter)
+                                  (append "g")
+                                  (classed "arc" true)
+                                  (append "path")
+                                  (attr "d", arc)
+                                  (attr "id" (fn [d i] (str "arc-" i)))
+                                  (attr "stroke" "gray")
+                                  (attr "fill" (fn [d i]
+                                                 (.-color (.-data d))
+                                                 ;; (-> js/d3 (.interpolateCool (.random js/Math)))
+                                                 ))
+                                  )
+                              ))
+
+     :component-did-update (fn [this]
+                             (let [[_ data] (reagent/argv this)
+                                   d3data (clj->js data)
+                                   arcs ((-> js/d3
+                                             (.pie)
+                                             (.sort nil)
+                                             (.value (fn [d] (.-r d)))) d3data)
+                                   arc (-> js/d3
+                                           (.arc)
+                                           (.outerRadius 200)
+                                           (.innerRadius 100)
+                                           (.padAngle 0.03)
+                                           (.cornerRadius 4))
+                                   ]
+                               (.. js/d3
+                                   (select "svg")
+                                   (selectAll "g")
+                                   ;; (exit)
+                                   (remove)
+                                   (data d3data)
+                                   (enter)
+                                   (append "g")
+                                   (attr "transform" "translate(200, 200)")
+                                   (selectAll ".arc")
+                                   (data arcs)
+                                   (enter)
+                                   (append "g")
+                                   (classed "arc" true)
+                                   (append "path")
+                                   (attr "d", arc)
+                                   (attr "id" (fn [d i] (str "arc-" i)))
+                                   (attr "stroke" "gray")
+                                   (attr "fill" (fn [d i]
+                                                  (.-color (.-data d))
+                                                  ;; (-> js/d3 (.interpolateCool (.random js/Math)))
+                                                  ))
+                                   ))
     )}))
 
 
@@ -92,7 +172,8 @@
           [:div {:class "col-md-5"}
             [d3-inner @data]]
           [:div {:class "col-md-5"}
-            [sliders @data]]]]
+           [sliders @data]]
+         ]]
       )))
 
 (let []
