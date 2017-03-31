@@ -120,13 +120,29 @@
                                            (.innerRadius 100)
                                            (.padAngle 0.03)
                                            (.cornerRadius 4))
+                                   arc-tween (fn [a]
+                                               (let [i (.. js/d3
+                                                           (interpolate
+                                                            (this-as my-this (.-current my-this)) a))]
+                                                 (this-as my-this (set! (.-current my-this) (i 0))) 
+                                                 (println a)
+                                                 (fn [t] (arc (i t)))
+                                                 ))
                                    ]
+                               (println "Hello")
+                               (println (arc-tween 5))
                                (.. js/d3
                                    (select "svg")
                                    (selectAll "g")
-                                   ;; (exit)
-                                   (remove)
                                    (data d3data)
+                                   (exit)
+                                   (transition)
+                                   (duration 750)
+                                   (attrTween "d" arc-tween)
+                                   (remove)
+                                   (transition)
+                                   (duration 750)
+                                   (attrTween "d" arc-tween)
                                    (enter)
                                    (append "g")
                                    (attr "transform" "translate(200, 200)")
@@ -142,8 +158,8 @@
                                    (attr "fill" (fn [d i]
                                                   (.-color (.-data d))
                                                   ;; (-> js/d3 (.interpolateCool (.random js/Math)))
-                                                  ))
-                                   ))
+                                                  )))
+                               )
     )}))
 
 
