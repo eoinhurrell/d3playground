@@ -9,188 +9,190 @@
                                                 subscribe]]
             [cljsjs.d3]))
 
-(enable-console-print!)
-(println "Edits to this text should show up in your developer console.")
-
-(def app-state {:circles [{:name "circle 1" :x 10 :y 10 :r 10 :color "black"}
-                          {:name "circle 2" :x 35 :y 35 :r 15 :color "red"}
-                          {:name "circle 3" :x 100 :y 100 :r 30 :color "blue"}]})
-
-;; define your app data so that it doesn't get over-written on reload
-;;---- Event handlers-----------
-(register-handler
-  :initialize-db
-  (fn
-    [_ _]
-    app-state))
-
-(register-handler
-  :update
-  (fn
-    [db [_ idx param val]]
-    (println "idx " idx "param " param "val " val)
-    (assoc-in db [:circles idx param ] val)))
-
-;;---- Subscription handlers-----------
-(register-sub
-  :circles
-  (fn
-    [db _]
-    (reaction (:circles @db))))
-
-(defn d3-inner3 [data]
- (reagent/create-class
-    {:reagent-render (fn [] [:div [:svg {:width 400 :height 800}]])
-
-     :component-did-mount (fn []
-                            (let [d3data (clj->js data)]
-                              (.. js/d3
-                                  (select "svg")
-                                  (selectAll "circle")
-                                  (data d3data)
-                                  enter
-                                  (append "circle")
-                                  (attr "cx" (fn [d] (.-x d)))
-                                  (attr "cy" (fn [d] (.-y d)))
-                                  (attr "r" (fn [d] (.-r d)))
-                                  (attr "fill" (fn [d] (.-color d))))))
-
-     :component-did-update (fn [this]
-                             (let [[_ data] (reagent/argv this)
-                                   d3data (clj->js data)]
-                               (.. js/d3
-                                   (selectAll "circle")
-                                   (data d3data)
-                                   (attr "cx" (fn [d] (.-x d)))
-                                   (attr "cy" (fn [d] (.-y d)))
-                                   (attr "r" (fn [d] (.-r d)))))
-    )}))
-
-(defn d3-inner [data]
- (reagent/create-class
-    {:reagent-render (fn [] [:div [:svg {:width 400 :height 800}]])
-
-     :component-did-mount (fn []
-                            (let [d3data (clj->js data)
-                                  arcs ((-> js/d3
-                                           (.pie)
-                                           (.sort nil)
-                                           (.value (fn [d] (.-r d)))) d3data)
-                                  arc (-> js/d3
-                                          (.arc)
-                                          (.outerRadius 200)
-                                          (.innerRadius 100)
-                                          (.padAngle 0.03)
-                                          (.cornerRadius 8)
-                                          )
-                                  ]
-                              (.. js/d3
-                                  (select "svg")
-                                  (selectAll "g")
-                                  (data d3data)
-                                  (enter)
-                                  (append "g")
-                                  (attr "transform" "translate(200, 200)")
-                                  (selectAll ".arc")
-                                  (data arcs)
-                                  (enter)
-                                  (append "g")
-                                  (classed "arc" true)
-                                  (append "path")
-                                  (attr "d", arc)
-                                  (attr "id" (fn [d i] (str "arc-" i)))
-                                  (attr "stroke" "gray")
-                                  (attr "fill" (fn [d i]
-                                                 (.-color (.-data d))
-                                                 ;; (-> js/d3 (.interpolateCool (.random js/Math)))
-                                                 ))
-                                  )
-                              ))
-
-     :component-did-update (fn [this]
-                             (let [[_ data] (reagent/argv this)
-                                   d3data (clj->js data)
-                                   arcs ((-> js/d3
-                                             (.pie)
-                                             (.sort nil)
-                                             (.value (fn [d] (.-r d)))) d3data)
-                                   arc (-> js/d3
-                                           (.arc)
-                                           (.outerRadius 200)
-                                           (.innerRadius 100)
-                                           (.padAngle 0.03)
-                                           (.cornerRadius 4))
-                                   arc-tween (fn [a]
-                                               (let [i (.. js/d3
-                                                           (interpolate
-                                                            (this-as my-this (.-current my-this)) a))]
-                                                 (this-as my-this (set! (.-current my-this) (i 0))) 
-                                                 (println a)
-                                                 (fn [t] (arc (i t)))
-                                                 ))
-                                   ]
-                               (println "Hello")
-                               (println (arc-tween 5))
-                               (.. js/d3
-                                   (select "svg")
-                                   (selectAll "g")
-                                   (data d3data)
-                                   (exit)
-                                   (transition)
-                                   (duration 750)
-                                   (attrTween "d" arc-tween)
-                                   (remove)
-                                   (transition)
-                                   (duration 750)
-                                   (attrTween "d" arc-tween)
-                                   (enter)
-                                   (append "g")
-                                   (attr "transform" "translate(200, 200)")
-                                   (selectAll ".arc")
-                                   (data arcs)
-                                   (enter)
-                                   (append "g")
-                                   (classed "arc" true)
-                                   (append "path")
-                                   (attr "d", arc)
-                                   (attr "id" (fn [d i] (str "arc-" i)))
-                                   (attr "stroke" "gray")
-                                   (attr "fill" (fn [d i]
-                                                  (.-color (.-data d))
-                                                  ;; (-> js/d3 (.interpolateCool (.random js/Math)))
-                                                  )))
-                               )
-    )}))
 
 
-(defn slider [param idx value]
-  [:input {:type "range"
-           :value value
-           :min 0
-           :max 500
-           :style {:width "100%"}
-           :on-change #(dispatch [:update idx param (-> % .-target .-value)])}])
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Model
 
-(defn sliders [data]
-    [:div (for [[idx d] (map-indexed vector data)]
-            ^{:key (str "slider-" idx)}
-            [:div
-             [:h3 (:name d)]
-             "x " (:x d) (slider :x idx (:x d))
-             "y " (:y d) (slider :y idx (:y d))
-             "r " (:r d) (slider :r idx (:r d))])])
+(defonce app-state
+  (reagent/atom
+   {:width 300
+    :data  [{:x 5}
+            {:x 2}
+            {:x 3}]}))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Util Fns
+
+(defn get-width [ratom]
+  (:width @ratom))
+
+(defn get-height [ratom]
+  (let [width (get-width ratom)]
+    (* 0.8 width)))
+
+(defn get-data [ratom]
+  (:data @ratom))
+
+
+(defn randomize-data [ratom]
+  (let [points-n (max 2 (rand-int 8))
+        points   (range points-n)
+        create-x (fn [] (max 1 (rand-int 5)))]
+    (swap! ratom update :data
+           (fn []
+             (mapv #(hash-map :x (create-x))
+                   points)))))
+
+(defn append-data [ratom]
+    (swap! ratom update-in [:data] conj {:x (rand-int 5)}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Components
+
+(defn btn-toggle-width [ratom]
+  [:div
+   [:button
+    {:on-click #(swap! ratom update
+                       :width (fn [width]
+                                (if (= 300 width) 500 300)))}
+    "Toggle width"]])
+
+
+(defn btn-randomize-data [ratom]
+  [:div
+   [:button
+    {:on-click #(randomize-data ratom)}
+    "Randomize data"]])
+
+
+(defn btn-append-data [ratom]
+  [:div
+   [:button
+    {:on-click #(append-data ratom)}
+    "Append data"]])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Viz
+
+;; Container
+
+(defn container-did-mount [ratom]
+  (-> (js/d3.select "#barchart svg")
+      (.append "g")
+      (.attr "class" "container")))
+
+;; Bars
+
+(defn bars-enter [ratom]
+  (let [data (get-data ratom)]
+    (-> (js/d3.select "#barchart svg .container .bars")
+        (.selectAll "rect")
+        (.data (clj->js data))
+        .enter
+        (.append "rect"))))
+
+(defn bars-update [ratom]
+  (let [width   (get-width ratom)
+        height  (get-height ratom)
+        data    (get-data ratom)
+        data-n  (count data)
+        rect-height (/ height data-n)
+        x-scale (-> js/d3
+                    .scaleLinear
+                    (.domain #js [0 5])
+                    (.range #js [0 width]))]
+    (-> (js/d3.select "#barchart svg .container .bars")
+        (.selectAll "rect")
+        (.data (clj->js data))
+        (.attr "fill" "green")
+        (.transition)
+        (.duration 300)
+        (.attr "x" (x-scale 0))
+        (.transition)
+        (.duration 300)
+        (.attr "y" (fn [_ i]
+                     (* i rect-height)))
+        (.attr "height" (- rect-height 1))
+        (.attr "width" (fn [d]
+                         (x-scale (aget d "x")))))))
+
+(defn bars-exit [ratom]
+  (let [width   (get-width ratom)
+        data (get-data ratom)
+        x-scale (-> js/d3
+                    .scaleLinear
+                    (.domain #js [0 5])
+                    (.range #js [0 width]))]
+    (-> (js/d3.select "#barchart svg .container .bars")
+        (.selectAll "rect")
+        (.data (clj->js data))
+        .exit
+        (.transition)
+        (.duration 300)
+        (.attr "x" (x-scale 0))
+        (.attr "width" width - (x-scale 0))
+        (.style "fill-opacity" 1e-6)
+        .remove)))
+
+
+(defn bars-did-update [ratom]
+  (bars-enter ratom)
+  (bars-update ratom)
+  (bars-exit ratom))
+
+(defn bars-did-mount [ratom]
+  (-> (js/d3.select "#barchart svg .container")
+      (.append "g")
+      (.attr "class" "bars"))
+  (bars-did-update ratom))
+
+
+;; Main
+
+(defn barh-plot-render [ratom]
+  (let [width  (get-width ratom)
+        height (get-height ratom)]
+    [:div
+     {:id "barchart"}
+
+     [:svg
+      {:width  width
+       :height height}]]))
+
+(defn barh-plot-did-mount [ratom]
+  (container-did-mount ratom)
+  (bars-did-mount ratom))
+
+(defn barh-plot-did-update [ratom]
+  (bars-did-update ratom))
+
+(defn barh-plot [ratom]
+  (reagent/create-class
+   {:reagent-render      #(barh-plot-render ratom)
+    :component-did-mount #(barh-plot-did-mount ratom)
+    :component-did-update #(barh-plot-did-update ratom)}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Page
 
 (defn app []
-  (let [data (subscribe [:circles])]
-    (fn []
-      [:div {:class "container"}
-        [:div {:class "row"}
-          [:div {:class "col-md-5"}
-            [d3-inner @data]]
-          [:div {:class "col-md-5"}
-           [sliders @data]]
-         ]]
-      )))
+  [:div
+   [:div {:class "col-md-1"}]
+   [:div {:class "col-md-10"}
+    [:h1 "Barchart"]
+    [barh-plot app-state]
+    [btn-toggle-width app-state]
+    [btn-randomize-data app-state]
+    [btn-append-data app-state]
+    ]
+   [:div {:class "col-md-1"}]
+   ])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Initialize App
 
 (let []
   (dispatch-sync [:initialize-db])
