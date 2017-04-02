@@ -38,7 +38,7 @@
 
 
 (defn randomize-data [ratom]
-  (let [points-n (max 2 (rand-int 8))
+  (let [points-n (max 2 (rand-int 50))
         points   (range points-n)
         create-x (fn [] (max 1 (rand-int 5)))]
     (swap! ratom update :data
@@ -47,7 +47,7 @@
                    points)))))
 
 (defn append-data [ratom]
-    (swap! ratom update-in [:data] conj {:x (rand-int 5)}))
+    (swap! ratom update-in [:data] conj {:x (max 1 (rand-int 5))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Components
@@ -82,7 +82,14 @@
 (defn container-did-mount [ratom]
   (-> (js/d3.select "#barchart svg")
       (.append "g")
-      (.attr "class" "container")))
+      (.attr "class" "container")
+      (.append "g")
+      (.attr "transform"  (str "translate(0," 350 ")"))
+      (.call (-> js/d3 (.axisBottom (-> js/d3
+                                        .scaleLinear
+                                        (.domain #js [0 5])
+                                        (.range #js [0 400])))))
+      ))
 
 ;; Bars
 
@@ -117,7 +124,9 @@
                      (* i rect-height)))
         (.attr "height" (- rect-height 1))
         (.attr "width" (fn [d]
-                         (x-scale (aget d "x")))))))
+                         (x-scale (aget d "x"))))
+        )
+    ))
 
 (defn bars-exit [ratom]
   (let [width   (get-width ratom)
@@ -136,7 +145,6 @@
         (.attr "width" width - (x-scale 0))
         (.style "fill-opacity" 1e-6)
         .remove)))
-
 
 (defn bars-did-update [ratom]
   (bars-enter ratom)
@@ -195,7 +203,7 @@
 ;; Initialize App
 
 (let []
-  (dispatch-sync [:initialize-db])
+  ;; (dispatch-sync [:initialize-db])
   (reagent/render-component [app]
                             (. js/document (getElementById "app"))))
 
